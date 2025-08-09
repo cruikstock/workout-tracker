@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Workout Tracker</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+  h1 { text-align: center; }
+  .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 8px; }
+  label { display: block; margin-top: 10px; }
+  input, select, button, textarea { width: 100%; padding: 8px; margin-top: 5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  table, th, td { border: 1px solid #ddd; }
+  th, td { padding: 8px; text-align: left; }
+  .flex { display: flex; gap: 10px; }
+  canvas { margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<h1>Workout Tracker</h1>
+<div class="container">
+
+  <h2>Add Exercise</h2>
+  <label>Exercise Name:</label>
+  <input id="exerciseName" type="text">
+  <label>Body Part:</label>
+  <input id="bodyPart" type="text" placeholder="e.g. Legs, Chest, Back">
+  <button onclick="addExercise()">Add Exercise</button>
+
+  <h2>Log Workout</h2>
+  <label>Exercise:</label>
+  <select id="exerciseSelect"></select>
+  <label>Sets:</label>
+  <input id="sets" type="number">
+  <label>Reps:</label>
+  <input id="reps" type="number">
+  <label>Weight (lbs):</label>
+  <input id="weight" type="number">
+  <button onclick="logWorkout()">Log Workout</button>
+
+  <h2>Workout History</h2>
+  <table id="historyTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Exercise</th>
+        <th>Body Part</th>
+        <th>Sets</th>
+        <th>Reps</th>
+        <th>Weight</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Progress Chart</h2>
+  <select id="chartExerciseSelect" onchange="updateChart()"></select>
+  <canvas id="progressChart" height="100"></canvas>
+
+  <h2>Data Backup</h2>
+  <button onclick="exportData()">Export Data</button>
+  <textarea id="importData" placeholder="Paste data here to import"></textarea>
+  <button onclick="importDataFunc()">Import Data</button>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let exercises = JSON.parse(localStorage.getItem('exercises') || '[]');
+let history = JSON.parse(localStorage.getItem('history') || '[]');
+let chart;
+
+// Populate dropdowns
+function updateExerciseSelects() {
+  const sel1 = document.getElementById('exerciseSelect');
+  const sel2 = document.getElementById('chartExerciseSelect');
+  sel1.innerHTML = '';
+  sel2.innerHTML = '';
+  exercises.forEach(ex => {
+    const opt1 = document.createElement('option');
+    opt1.value = ex.name;
+    opt1.textContent = `${ex.name} (${ex.bodyPart})`;
+    sel1.appendChild(opt1);
+
+    const opt2 = document.createElement('option');
+    opt2.value = ex.name;
+    opt2.textContent = `${ex.name} (${ex.bodyPart})`;
+    sel2.appendChild(opt2);
+  });
+}
+
+// Add exercise
+function addExercise() {
+  const name = document.getElementById('exerciseName').value.trim();
+  const bodyPart = document.getElementById('bodyPart').value.trim();
+  if (!name || !bodyPart) return alert('Please enter both exercise name and body part.');
+  exercises.push({ name, bodyPart });
+  localStorage.setItem('exercises', JSON.stringify(exercises));
+  document.getElementById('exerciseName').value = '';
+  document.getElementById('bodyPart').value = '';
+  updateExerciseSelects();
+}
+
+// Log workout
+function logWorkout() {
+  const exercise = document.getElementById('exerciseSelect').value;
+  const exObj = exercises.find(e => e.name === exercise);
+  const sets = +document.getElementById('sets').value;
+  const reps = +document.getElementById('reps').value;
+  const weight = +document.getElementById('weight').value;
+  if (!exercise || !sets || !reps || !weight) return alert('Please fill all workout fields.');
+  const entry = {
+    date: new Date().toLocaleDateString(),
+    exercise,
+    bodyPart: exObj.bodyPart,
+    sets,
+    reps,
+    weight
+  };
+  history.push(entry);
+  localStorage.setItem('history', JSON.stringify(history));
+  renderHistory();
+  updateChart();
+}
+
+// Render history
+function renderHistory() {
+  const tbody = document.querySelector('#historyTable tbody');
+  tbody.innerHTML = '';
+  history.forEach(h => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${h.date}</td><td>${h.exercise}</td><td>${h.bodyPart}</td><td>${h.sets}</td><td>${h.reps}</td><td>${h.weight}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// Export data
+function exportData() {
+  const data = { exercises, history };
+  navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+  alert('Data copied to clipboard.');
+}
+
+// Import data
+function importDataFunc() {
+  try {
+    const data = JSON.parse(document.getElementById('importData').value);
+    exercises = data.exercises || [];
+    history = data.history || [];
+    localStorage.setItem('exercises', JSON.stringify(exercises));
+    localStorage.setItem('history', JSON.stringify(history));
+    updateExerciseSelects();
+    renderHistory();
+    updateChart();
+    alert('Data imported.');
+  } catch {
+    alert('Invalid data format.');
+  }
+}
+
+// Chart
+function updateChart() {
+  const selected = document.getElementById('chartExerciseSelect').value;
+  const filtered = history.filter(h => h.exercise === selected);
+  const labels = filtered.map(f => f.date);
+  const weights = filtered.map(f => f.weight);
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById('progressChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Weight Lifted',
+        data: weights,
+        borderColor: 'blue',
+        fill: false
+      }]
+    }
+  });
+}
+
+// Init
+updateExerciseSelects();
+renderHistory();
+if (exercises.length) updateChart();
+</script>
+
+</body>
+</html>
